@@ -1,173 +1,117 @@
 package main
 
 import (
+	"calculator/master"
+	"calculator/model"
 	"calculator/request"
 	"errors"
 	"fmt"
 	"math"
-
-	"golang.org/x/exp/constraints"
 )
 
 func main() {
-	Customer1 := request.Cart{
-		CartItems: []request.CartItem{request.CartItem{ItemName: "red_set", Amount: 1}, request.CartItem{ItemName: "green_set", Amount: 1}},
+	customer1 := request.Cart{
+		CartItems: []request.CartItem{{ItemName: "red_set", Amount: 1}, {ItemName: "green_set", Amount: 1}},
 		IsMember:  false,
 	}
-	TotalPriceCustomer1, err := GetTotalPrice(Customer1)
+	totalPriceCustomer1, err := GetTotalPrice(customer1)
 	if err != nil {
 		fmt.Print(err.Error())
 		return
 	}
-	fmt.Println("Total price of Customer1 is ", TotalPriceCustomer1)
-
-	Customer2 := request.Cart{
-		CartItems: []request.CartItem{request.CartItem{ItemName: "orange_set", Amount: 5}},
-		IsMember:  false,
-	}
-	TotalPriceCustomer2, err := GetTotalPrice(Customer2)
-	if err != nil {
-		fmt.Print(err.Error())
-		return
-	}
-	fmt.Println("Total price of Customer2 is ", TotalPriceCustomer2)
-
-	Customer3 := request.Cart{
-		CartItems: []request.CartItem{request.CartItem{ItemName: "orange_set", Amount: 5}},
-		IsMember:  true,
-	}
-	TotalPriceCustomer3, err := GetTotalPrice(Customer3)
-	if err != nil {
-		fmt.Print(err.Error())
-		return
-	}
-	fmt.Println("Total price of Customer3 is ", TotalPriceCustomer3)
-
-	Customer4 := request.Cart{
-		CartItems: []request.CartItem{request.CartItem{ItemName: "green_set", Amount: 5}, request.CartItem{ItemName: "purple_set", Amount: 5}},
-		IsMember:  false,
-	}
-	TotalPriceCustomer4, err := GetTotalPrice(Customer4)
-	if err != nil {
-		fmt.Print(err.Error())
-		return
-	}
-	fmt.Println("Total price of Customer4 is ", TotalPriceCustomer4)
-
-	Customer5 := request.Cart{
-		CartItems: []request.CartItem{request.CartItem{ItemName: "red_set", Amount: 1}, request.CartItem{ItemName: "green_set", Amount: 1}, request.CartItem{ItemName: "green_set", Amount: 1}},
-		IsMember:  false,
-	}
-	TotalPriceCustomer5, err := GetTotalPrice(Customer5)
-	if err != nil {
-		fmt.Print(err.Error())
-		return
-	}
-	fmt.Println("Total price of Customer5 is ", TotalPriceCustomer5)
+	fmt.Println("Total price of Customer1 is ", totalPriceCustomer1)
 
 }
 
-func InitItemInStore() map[string]float64 {
-	ItemsInStore := map[string]float64{
-		"red_set":    50,
-		"green_set":  40,
-		"blue_set":   30,
-		"yellow_set": 50,
-		"pink_set":   80,
-		"purple_set": 90,
-		"orange_set": 120,
-	}
-	return ItemsInStore
-}
+func InitItemInStore() map[string]model.ItemStore {
+	
+	itemsInStoreData := master.GetItemInStore()
+	itemsInStore := map[string]model.ItemStore{}
+	
+	for _, item := range itemsInStoreData {
 
-func InitItemInPromotion() ([]string, error) {
-	ItemInPromotion := []string{"green_set", "pink_set", "orange_set"}
-	ItemsInStore := InitItemInStore()
-	for _, ItemName := range ItemInPromotion {
-		if _, ok := ItemsInStore[ItemName]; !ok {
-			errMsg := fmt.Sprintf("error from InitItemInPromotion : no item named %s in this store", ItemName)
-			err := errors.New(errMsg)
-			return []string{}, err
-		}
+		itemsInStore[item.Name] = item
+
 	}
-	return ItemInPromotion, nil
+	return itemsInStore
 }
 
 func GetTotalPrice(Cart request.Cart) (float64, error) {
-	var DiscountForMember float64
-	CombineCart(&Cart)
-	ItemsInStore := InitItemInStore()
-	ItemInPromotion, err := InitItemInPromotion()
-	if err != nil {
-		return 0, err
-	}
-	TotalPice := 0.0
+	
+	GroupByCartByName(&Cart)
+	itemsInStore := InitItemInStore()
+	totalPice := 0.0
+
 	for _, cartItem := range Cart.CartItems {
-		if price, ok := ItemsInStore[cartItem.ItemName]; ok {
-			if IsContainsSlice(cartItem.ItemName, ItemInPromotion) {
-				TotalPice += CalculatePromotion(cartItem.Amount, price)
+
+		if item, ok := itemsInStore[cartItem.ItemName]; ok {
+
+			if item.IsHavePromotion {
+				totalPice += CalculatePromotion(cartItem.Amount, item)
 			} else {
-				TotalPice += float64(cartItem.Amount) * price
+				totalPice += float64(cartItem.Amount) * item.Price
 			}
 		} else {
+
 			errMsg := fmt.Sprintf("error from GetTotalPrice :no item named %s in this store", cartItem.ItemName)
 			err := errors.New(errMsg)
 			return 0, err
+
 		}
 	}
+
 	if Cart.IsMember {
-		DiscountForMember = 10
-		ratio := (100 - DiscountForMember) / 100
+		
+		ratio := (100 - master.PercentDiscountMember) / 100
 		if ratio <= 0 {
 			ratio = 0
 		}
-		TotalPice = TotalPice * ratio
+		totalPice = totalPice * ratio
 	}
-	return RoundTo2Decimal(TotalPice), nil
+	return RoundTo2Decimal(totalPice), nil
 }
 
-func CalculatePromotion(amount int, price float64) float64 {
-	var ConditionNumber int       //เงื่อนไขจำนวนสินค้าที่จะเข้าpromotion
-	var DiscountPromotion float64 //percent ส่วนลด
-	ConditionNumber = 2
-	DiscountPromotion = 5
-	ratio := (100 - DiscountPromotion) / 100
+func CalculatePromotion(amount int, itemInStore model.ItemStore) float64 {
+
+	ratio := (100 - itemInStore.DiscountPercent) / 100
 	if ratio <= 0 {
 		ratio = 0
 	}
-	numberOfPair := amount / ConditionNumber
-	numberOfMod := amount % ConditionNumber
+	numberOfPair := amount / itemInStore.ConditionNumber
+	numberOfMod := amount % itemInStore.ConditionNumber
+
 	if numberOfPair > 0 {
-		return ((float64(ConditionNumber) * float64(numberOfPair) * price) * ratio) + (float64(numberOfMod) * price)
+
+		priceAfterDiscountBundle := ((float64(itemInStore.ConditionNumber) * float64(numberOfPair) * itemInStore.Price) * ratio)
+		priceNotDiscount := (float64(numberOfMod) * itemInStore.Price)
+		
+		return priceAfterDiscountBundle + priceNotDiscount
 	}
-	return price * float64(amount)
+
+	return itemInStore.Price * float64(amount)
 }
 
-func CombineCart(cart *request.Cart) {
-	CartItemInMap := make(map[string]request.CartItem)
+func GroupByCartByName(cart *request.Cart) {
+
+	cartItemInMap := make(map[string]int)
+
 	for _, item := range cart.CartItems {
-		if cartItem, ok := CartItemInMap[item.ItemName]; ok {
-			cartItem.Amount += item.Amount
-			CartItemInMap[item.ItemName] = cartItem
-		} else {
-			CartItemInMap[item.ItemName] = item
-		}
+
+		cartItemInMap[item.ItemName] += item.Amount
+
 	}
+
 	updatedCart := request.Cart{IsMember: cart.IsMember}
-	for _, item := range CartItemInMap {
-		updatedCart.CartItems = append(updatedCart.CartItems, item)
+	for name, amount := range cartItemInMap {
+
+		cartItem := request.CartItem{ItemName: name, Amount: amount}
+		updatedCart.CartItems = append(updatedCart.CartItems, cartItem)
+
 	}
+
 	*cart = updatedCart
 }
 
-func IsContainsSlice[T constraints.Ordered](item T, items []T) bool {
-	for _, value := range items {
-		if item == value {
-			return true
-		}
-	}
-	return false
-}
 
 func RoundTo2Decimal(val float64) float64 {
 	if val == 0 {

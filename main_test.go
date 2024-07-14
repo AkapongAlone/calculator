@@ -6,70 +6,112 @@ import (
 )
 
 func TestGetTotalPrice(t *testing.T) {
-	Customer1 := request.Cart{
-		CartItems: []request.CartItem{request.CartItem{ItemName: "red_set", Amount: 1}, request.CartItem{ItemName: "green_set", Amount: 2}},
-		IsMember:  false,
-	}
-	TotalPriceCustomer1, err := GetTotalPrice(Customer1)
-	if TotalPriceCustomer1 != 126 {
-		t.Errorf("result should equal 126 but got %f", TotalPriceCustomer1)
-	} else if err != nil {
-		t.Error(err)
+	tests := []struct {
+		name         string
+		cart         request.Cart
+		expected     float64
+		expectingErr bool
+	}{
+		{
+			name: "Customer1",
+			cart: request.Cart{
+				CartItems: []request.CartItem{
+					{ItemName: "red_set", Amount: 1},
+					{ItemName: "green_set", Amount: 2},
+				},
+				IsMember: false,
+			},
+			expected:     126,
+			expectingErr: false,
+		},
+		{
+			name: "Customer2",
+			cart: request.Cart{
+				CartItems: []request.CartItem{
+					{ItemName: "red_set", Amount: 1},
+					{ItemName: "green_set", Amount: 1},
+					{ItemName: "green_set", Amount: 1},
+				},
+				IsMember: false,
+			},
+			expected:     126,
+			expectingErr: false,
+		},
+		{
+			name: "Customer3",
+			cart: request.Cart{
+				CartItems: []request.CartItem{
+					{ItemName: "red_set", Amount: 1},
+					{ItemName: "green_set", Amount: 1},
+					{ItemName: "green_set", Amount: 1},
+				},
+				IsMember: true,
+			},
+			expected:     113.4,
+			expectingErr: false,
+		},
+		{
+			name: "Customer4",
+			cart: request.Cart{
+				CartItems: []request.CartItem{
+					{ItemName: "red_set", Amount: 1},
+					{ItemName: "green_set", Amount: 3},
+					{ItemName: "green_set", Amount: 1},
+					{ItemName: "orange_set", Amount: 5},
+					{ItemName: "pink_set", Amount: 4},
+				},
+				IsMember: true,
+			},
+			expected:     973.8,
+			expectingErr: false,
+		},
+		{
+			name: "Customer5",
+			cart: request.Cart{
+				CartItems: []request.CartItem{},
+				IsMember:  true,
+			},
+			expected:     0,
+			expectingErr: false,
+		},
+		{
+			name: "Customer6",
+			cart: request.Cart{
+				CartItems: []request.CartItem{
+					{ItemName: "red_set", Amount: 1},
+					{ItemName: "green_set", Amount: 3},
+					{ItemName: "green_set", Amount: 1},
+					{ItemName: "orange_set", Amount: 5},
+					{ItemName: "pink_set", Amount: 4},
+				},
+				IsMember: false,
+			},
+			expected:     1082,
+			expectingErr: false,
+		},
+		{
+			name: "Customer7",
+			cart: request.Cart{
+				CartItems: []request.CartItem{
+					{ItemName: "test", Amount: 6},	
+				},
+				IsMember: false,
+			},
+			expected:     540,
+			expectingErr: false,
+		},
 	}
 
-	Customer2 := request.Cart{
-		CartItems: []request.CartItem{request.CartItem{ItemName: "red_set", Amount: 1}, request.CartItem{ItemName: "green_set", Amount: 1}, request.CartItem{ItemName: "green_set", Amount: 1}},
-		IsMember:  false,
-	}
-	TotalPriceCustomer2, err := GetTotalPrice(Customer2)
-	if TotalPriceCustomer2 != 126 {
-		t.Errorf("result should equal 126 but got %f", TotalPriceCustomer2)
-	} else if err != nil {
-		t.Error(err)
-	}
-
-	Customer3 := request.Cart{
-		CartItems: []request.CartItem{request.CartItem{ItemName: "red_set", Amount: 1}, request.CartItem{ItemName: "green_set", Amount: 1}, request.CartItem{ItemName: "green_set", Amount: 1}},
-		IsMember:  true,
-	}
-	TotalPriceCustomer3, err := GetTotalPrice(Customer3)
-	if TotalPriceCustomer3 != 113.4 {
-		t.Errorf("result should equal 113.4 but got %f", TotalPriceCustomer3)
-	} else if err != nil {
-		t.Error(err)
-	}
-
-
-	Customer4 := request.Cart{
-		CartItems: []request.CartItem{request.CartItem{ItemName: "red_set", Amount: 1}, request.CartItem{ItemName: "green_set", Amount: 3}, request.CartItem{ItemName: "green_set", Amount: 1}, request.CartItem{ItemName: "orange_set", Amount: 5}, request.CartItem{ItemName: "pink_set", Amount: 4}},
-		IsMember:  true,
-	}
-	TotalPriceCustomer4, err := GetTotalPrice(Customer4)
-	if TotalPriceCustomer4 != 973.8 {
-		t.Errorf("result should equal 973.8 but got %f", TotalPriceCustomer4)
-	} else if err != nil {
-		t.Error(err)
-	}
-
-	Customer5 := request.Cart{
-		CartItems: []request.CartItem{},
-		IsMember:  true,
-	}
-	TotalPriceCustomer5, err := GetTotalPrice(Customer5)
-	if TotalPriceCustomer5 != 0 {
-		t.Errorf("result should equal 0 but got %f", TotalPriceCustomer5)
-	} else if err != nil {
-		t.Error(err)
-	}
-
-	Customer6 := request.Cart{
-		CartItems: []request.CartItem{request.CartItem{ItemName: "red_set", Amount: 1}, request.CartItem{ItemName: "green_set", Amount: 3}, request.CartItem{ItemName: "green_set", Amount: 1}, request.CartItem{ItemName: "orange_set", Amount: 5}, request.CartItem{ItemName: "pink_set", Amount: 4}},
-		IsMember:  false,
-	}
-	TotalPriceCustomer6, err := GetTotalPrice(Customer6)
-	if TotalPriceCustomer6 != 1082 {
-		t.Errorf("result should equal 1082 but got %f", TotalPriceCustomer6)
-	} else if err != nil {
-		t.Error(err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			totalPrice, err := GetTotalPrice(tt.cart)
+			if totalPrice != tt.expected {
+				t.Errorf("expected %f but got %f", tt.expected, totalPrice)
+			}
+			if (err != nil) != tt.expectingErr {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
 	}
 }
+
